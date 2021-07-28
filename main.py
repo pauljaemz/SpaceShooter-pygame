@@ -1,5 +1,6 @@
-import pygame, sys
+import pygame, sys, random
 from pygame import draw
+from pygame import display
 pygame.font.init()
 pygame.mixer.init()
 
@@ -13,26 +14,32 @@ YELLOW = (255, 255, 0)
 FPS = 60
 VEL = 5
 BULLET_VEL = 7
+ASTEROID_VEL = 6
+ASTEROID_HIT_VEL = 4
 MAX_BULLETS = 3
 YELLOW_HIT = pygame.USEREVENT + 1
 RED_HIT = pygame.USEREVENT +2
+RED_HIT_ASTEROID = pygame.USEREVENT + 3
 SPACESHIP_WIDTH, SPACESHIP_HEIGHT = 55,40
-YELLOW_SPACESHIP_IMAGE = pygame.image.load(r'C:\Users\paulj\OneDrive\Documents\Pygame Practice\Assets\spaceship_yellow.png')
-YELLOW_SPACESHIP = pygame.transform.rotate(pygame.transform.scale(YELLOW_SPACESHIP_IMAGE, (SPACESHIP_WIDTH, SPACESHIP_HEIGHT)), 90)
-RED_SPACESHIP_IMAGE = pygame.image.load(r'C:\Users\paulj\OneDrive\Documents\Pygame Practice\Assets\spaceship_red.png')
-RED_SPACESHIP = pygame.transform.rotate(pygame.transform.scale(RED_SPACESHIP_IMAGE, (SPACESHIP_WIDTH, SPACESHIP_HEIGHT)) ,270)
-SPACE = pygame.transform.scale(pygame.image.load(r'C:\Users\paulj\OneDrive\Documents\Pygame Practice\Assets\space.png'), (WIDTH, HEIGHT))
-BULLET_HIT_SOUND = pygame.mixer.Sound(r'C:\Users\paulj\OneDrive\Documents\Pygame Practice\Assets\grenade.mp3')
-BULLET_FIRE_SOUND = pygame.mixer.Sound(r'C:\Users\paulj\OneDrive\Documents\Pygame Practice\Assets\gun.mp3')
+ASTEROID_WIDTH, ASTEROID_HEIGHT = 65,55
+YELLOW_SPACESHIP_IMAGE = pygame.image.load(r'C:\Users\paulj\OneDrive\Documents\Pygame-practice\Assets\spaceship_yellow.png')
+YELLOW_SPACESHIP = pygame.transform.rotate(pygame.transform.scale(YELLOW_SPACESHIP_IMAGE, (SPACESHIP_WIDTH, SPACESHIP_HEIGHT)), 270)
+RED_SPACESHIP_IMAGE = pygame.image.load(r'C:\Users\paulj\OneDrive\Documents\Pygame-practice\Assets\spaceship_red.png')
+RED_SPACESHIP = pygame.transform.rotate(pygame.transform.scale(RED_SPACESHIP_IMAGE, (SPACESHIP_WIDTH, SPACESHIP_HEIGHT)) ,90)
+SPACE = pygame.transform.scale(pygame.image.load(r'C:\Users\paulj\OneDrive\Documents\Pygame-practice\Assets\space.png'), (WIDTH, HEIGHT))
+ASTEROID_IMG = pygame.image.load(r'C:\Users\paulj\OneDrive\Documents\Pygame-practice\Assets\asteroid.png')
+ASTEROID = pygame.transform.scale(ASTEROID_IMG, (ASTEROID_WIDTH,ASTEROID_HEIGHT))
+BULLET_HIT_SOUND = pygame.mixer.Sound(r'C:\Users\paulj\OneDrive\Documents\Pygame-practice\Assets\grenade.mp3')
+BULLET_FIRE_SOUND = pygame.mixer.Sound(r'C:\Users\paulj\OneDrive\Documents\Pygame-practice\Assets\gun.mp3')
 BORDER = pygame.Rect(WIDTH//2-5, 0, 10, HEIGHT)
 HEALTH_FONT = pygame.font.SysFont('comicsans', 40)
 WINNER_FONT = pygame.font.SysFont('comicsans', 100)
 
 
 
-def draw_window(red, yellow, red_bullets, yellow_bullets, red_health, yellow_health):
+def draw_window(red, yellow, red_bullets, yellow_bullets, red_health, yellow_health, asteroid):
     WIN.blit(SPACE, (0, 0))
-    pygame.draw.rect(WIN, BLACK, BORDER)
+    
     red_health_text = HEALTH_FONT.render("Health: " + str(red_health), 1, WHITE)
     yellow_health_text = HEALTH_FONT.render("Health: " + str(yellow_health), 1, WHITE)
     WIN.blit(red_health_text, (WIDTH - red_health_text.get_width() - 10, 10))
@@ -40,7 +47,8 @@ def draw_window(red, yellow, red_bullets, yellow_bullets, red_health, yellow_hea
 
     WIN.blit(YELLOW_SPACESHIP,(yellow.x, yellow.y))
     WIN.blit(RED_SPACESHIP,(red.x, red.y))
-    
+    WIN.blit(ASTEROID,(asteroid.x, asteroid.y))
+    pygame.draw.rect(WIN, BLACK, BORDER)
     for bullet in red_bullets:
          pygame.draw.rect(WIN, RED, bullet)
 
@@ -85,6 +93,22 @@ def handle_bullets(yellow_bullets, red_bullets, yellow, red):
                red_bullets.remove(bullet)    
           elif bullet.x < 0:
                red_bullets.remove(bullet)
+def asteroid_strike(asteroid, red):
+     global ASTEROID_VEL
+     asteroid.y += ASTEROID_VEL
+
+     if asteroid.colliderect(red):
+          
+          pygame.event.post(pygame.event.Event(RED_HIT_ASTEROID))
+
+def asteroid_position(asteroid, asteroid_cycle):
+     if (asteroid_cycle == 1 and asteroid.y >= 0):
+          asteroid.x += ASTEROID_HIT_VEL
+     else:
+          return    
+
+
+          
            
 def draw_winner(text):
      draw_text =WINNER_FONT.render(text, 1, WHITE)
@@ -95,11 +119,13 @@ def draw_winner(text):
 def main():
     red = pygame.Rect(700,300, SPACESHIP_WIDTH,SPACESHIP_HEIGHT)
     yellow = pygame.Rect(100,300, SPACESHIP_WIDTH,SPACESHIP_HEIGHT)
+    asteroid = pygame.Rect(700,0, ASTEROID_WIDTH,ASTEROID_HEIGHT)
     red_bullets = []
     yellow_bullets = []
 
     red_health = 10
     yellow_health = 10
+    asteroid_cycle = 0
     clock = pygame.time.Clock()
     run = True
     while run:
@@ -129,6 +155,15 @@ def main():
             if event.type == YELLOW_HIT:
                  yellow_health -= 1
                  BULLET_HIT_SOUND.play()
+
+            if event.type == RED_HIT_ASTEROID:
+                 global ASTEROID_VEL
+                 red_health -= 3 
+                 ASTEROID_VEL *= -1  
+                 asteroid_cycle = 1
+                 BULLET_HIT_SOUND.play()
+                 asteroid_position(asteroid, asteroid_cycle)
+                
                
         winner_text = ''
         if red_health <=0:
@@ -143,10 +178,13 @@ def main():
         keys_pressed = pygame.key.get_pressed()
 
         handle_bullets(yellow_bullets, red_bullets, yellow, red)
+        asteroid_strike(asteroid, red)
+        asteroid_position(asteroid, asteroid_cycle)
 
-        draw_window(red, yellow, red_bullets, yellow_bullets, red_health, yellow_health)
+        draw_window(red, yellow, red_bullets, yellow_bullets, red_health, yellow_health, asteroid)
         yellow_handle_movement(keys_pressed, yellow)
         red_handle_movement(keys_pressed, red)
+   
     main()
 
 
